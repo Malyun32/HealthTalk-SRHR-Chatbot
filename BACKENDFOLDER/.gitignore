@@ -1,0 +1,9 @@
+# Do NOT upload environment keys
+.env
+
+# Ignore backend auto-generated port file
+backend-port.json
+
+# Node files
+node_modules/
+npm-debug.log
