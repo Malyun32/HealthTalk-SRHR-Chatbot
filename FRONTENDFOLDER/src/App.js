@@ -3,32 +3,41 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./App.css";
 
-/**
- * HealthTalk - Frontend (clean white + pink accent)
- * - Left sidebar: Trusted Sources, Emergency, Instructions (collapsible)
- * - Right sidebar: Quick SRHR Topics (collapsible)
- * - Welcome floating toast
- * - Voice-to-text (Web Speech API fallback gracefully)
- * - Send on Enter, Shift+Enter for newline
- * - Typing animation
- */
+/** ----------------------------------------------------------
+ *  HealthTalk – SRHR Chatbot (Final Version)
+ * ----------------------------------------------------------
+ *  ✔ Trusted Sources (LEFT)
+ *  ✔ Quick SRHR Topics (RIGHT)
+ *  ✔ Emergency Help + Instructions (LEFT)
+ *  ✔ Welcome toast
+ *  ✔ Voice-to-text
+ *  ✔ Avatars
+ *  ✔ Typing animation
+ *  ✔ Clean white UI with pink accents
+ *  ✔ Send on Enter
+ *  ✔ Works with your Render backend
+ * ---------------------------------------------------------- */
 
-const API_BASE = "http://localhost:5000"; // change only if your backend runs on a different port
+const API_BASE = "https://healthtalk-srhr-chatbot-1.onrender.com";  
+// IMPORTANT: this connects your frontend to your deployed backend
 
 function App() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      content: "Hello 👋 — I'm HealthTalk. Ask anything about sexual & reproductive health.",
+      content:
+        "Hello 👋 — I'm HealthTalk. Ask anything about sexual & reproductive health.",
       id: Date.now(),
     },
   ]);
+
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [showWelcome, setShowWelcome] = useState(true);
   const [listening, setListening] = useState(false);
+
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
 
@@ -36,30 +45,29 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Quick SRHR topics for the right sidebar
+  // QUICK TOPICS
   const quickTopics = [
-    { key: "contraception", title: "Contraception methods", text: "Explain contraception methods in simple terms." },
-    { key: "sti", title: "STI prevention", text: "How can someone prevent STIs? Give simple, practical advice." },
-    { key: "menstrual", title: "Menstrual health", text: "Explain menstrual health in a friendly and clear way." },
-    { key: "emergency", title: "Emergency contraception", text: "What is emergency contraception and when should it be used?" },
-    { key: "pregnancy", title: "Pregnancy info", text: "Give important pregnancy information for young women." },
+    { title: "Contraception", text: "Explain contraception methods in simple terms." },
+    { title: "STI prevention", text: "How can someone prevent STIs? Give simple, practical advice." },
+    { title: "Menstrual health", text: "Explain menstrual health in a friendly and clear way." },
+    { title: "Emergency contraception", text: "What is emergency contraception and when should it be used?" },
+    { title: "Pregnancy info", text: "Give important pregnancy information for young women." },
   ];
 
-  // Trusted sources for left sidebar
+  // TRUSTED SOURCES
   const trustedSources = [
-    { title: "WHO - Sexual Health", url: "https://www.who.int/health-topics/sexual-health" },
-    { title: "UNFPA - SRHR", url: "https://www.unfpa.org/sexual-reproductive-health" },
+    { title: "WHO – Sexual Health", url: "https://www.who.int/health-topics/sexual-health" },
+    { title: "UNFPA – SRHR", url: "https://www.unfpa.org/sexual-reproductive-health" },
     { title: "Planned Parenthood", url: "https://www.plannedparenthood.org" },
-    { title: "CDC - Reproductive Health", url: "https://www.cdc.gov/reproductivehealth/" },
+    { title: "CDC – Reproductive Health", url: "https://www.cdc.gov/reproductivehealth/" },
   ];
 
-  // send message — accepts optional forced message (used by quick topics)
+  // SEND MESSAGE
   const sendMessage = async (forcedText = null) => {
     const text = (forcedText ?? input).trim();
     if (!text) return;
 
     const userMsg = { role: "user", content: text, id: Date.now() + Math.random() };
-    // add user locally
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setIsTyping(true);
@@ -68,30 +76,26 @@ function App() {
       const resp = await fetch(`${API_BASE}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+        }),
       });
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err?.error?.message || `API error ${resp.status}`);
-      }
-
       const data = await resp.json();
-      const replyText = (data.reply || data?.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.");
+      const reply = data.reply || "Sorry, I couldn’t generate a response.";
 
-      // ensure spacing / newlines are preserved by ReactMarkdown
-      const assistantMsg = { role: "assistant", content: replyText, id: Date.now() + Math.random() };
-      setMessages((m) => [...m, assistantMsg]);
-
-    } catch (error) {
-      console.error("Chat error:", error);
-      setMessages((m) => [...m, { role: "assistant", content: "⚠️ Server error — please make sure backend is running.", id: Date.now() + Math.random() }]);
+      setMessages((m) => [...m, { role: "assistant", content: reply, id: Date.now() + Math.random() }]);
+    } catch (err) {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "⚠️ Server error — please try again later.", id: Date.now() + Math.random() },
+      ]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  // handle enter key: send on Enter, allow Shift+Enter for newline
+  // ENTER KEY HANDLER
   const onKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -99,36 +103,23 @@ function App() {
     }
   };
 
-  // quick topic click -> auto-send
+  // CLICK QUICK TOPIC
   const handleQuickTopic = (topic) => {
     sendMessage(topic.text);
   };
 
-  // Voice to text: simple Web Speech API wrapper (graceful fallback)
+  // VOICE INPUT
   const toggleListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice input not supported in this browser.");
-      return;
-    }
+    if (!SpeechRecognition) return alert("Voice input not supported.");
 
     if (!recognitionRef.current) {
       const rec = new SpeechRecognition();
       rec.lang = "en-GB";
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
-
       rec.onresult = (event) => {
-        const spoken = event.results[0][0].transcript;
-        setInput((cur) => (cur ? cur + " " + spoken : spoken));
+        setInput((prev) => prev + " " + event.results[0][0].transcript);
       };
-      rec.onerror = (e) => {
-        console.warn("Speech error", e);
-      };
-      rec.onend = () => {
-        setListening(false);
-      };
-
+      rec.onend = () => setListening(false);
       recognitionRef.current = rec;
     }
 
@@ -136,29 +127,26 @@ function App() {
       recognitionRef.current.stop();
       setListening(false);
     } else {
-      try {
-        recognitionRef.current.start();
-        setListening(true);
-      } catch (e) {
-        console.warn("Could not start speech recognition", e);
-      }
+      recognitionRef.current.start();
+      setListening(true);
     }
   };
 
   return (
     <div className="app-root">
-      {/* Floating welcome toast */}
+
+      {/* WELCOME TOAST */}
       {showWelcome && (
         <div className="welcome-toast">
           <div>
             <strong>Welcome to HealthTalk 💗</strong>
-            <div className="small">Quick, private SRHR answers — click a topic or ask anything.</div>
+            <p className="small">Quick, private SRHR answers — ask anything.</p>
           </div>
-          <button className="tiny" onClick={() => setShowWelcome(false)}>Close</button>
+          <button className="tiny" onClick={() => setShowWelcome(false)}>✖</button>
         </div>
       )}
 
-      {/* Left sidebar */}
+      {/* LEFT SIDEBAR */}
       <aside className={`left-sidebar ${leftOpen ? "open" : "closed"}`}>
         <div className="sidebar-header">
           <h4>Trusted Sources</h4>
@@ -175,24 +163,26 @@ function App() {
 
             <div className="emergency">
               <h5>Emergency Help</h5>
-              <p>If someone is in danger, call local emergency services immediately.</p>
+              <p>If someone is in danger, call:</p>
               <p><strong>Kenya:</strong> 999 / 112</p>
             </div>
 
             <div className="instructions">
-              <h5>App instructions</h5>
+              <h5>How to use</h5>
               <ol>
-                <li>Type your question and press <strong>Enter</strong> or click <em>Send</em>.</li>
-                <li>Use quick topics on the right to auto-send common questions.</li>
-                <li>Use voice input (mic) to speak your question.</li>
+                <li>Type and press Enter</li>
+                <li>Use quick topics (right side)</li>
+                <li>Use microphone for voice input</li>
               </ol>
             </div>
           </>
         )}
       </aside>
 
-      {/* Main content */}
+      {/* MAIN CHAT AREA */}
       <main className="main-area">
+
+        {/* HEADER */}
         <header className="main-header">
           <div className="brand">
             <div className="logo">💗</div>
@@ -203,13 +193,22 @@ function App() {
           </div>
 
           <div className="header-actions">
-            <button className="icon-btn" onClick={() => { setMessages([{ role: "assistant", content: "Hello 👋 — I'm HealthTalk. Ask anything about sexual & reproductive health.", id: Date.now() }]); }}>
+            <button className="icon-btn" onClick={() =>
+              setMessages([
+                {
+                  role: "assistant",
+                  content:
+                    "Hello 👋 — I'm HealthTalk. Ask anything about sexual & reproductive health.",
+                  id: Date.now(),
+                },
+              ])
+            }>
               ↺ Reset
             </button>
-            <button className="icon-btn" onClick={() => setLeftOpen(!leftOpen)}>{leftOpen ? "Hide sources" : "Show sources"}</button>
           </div>
         </header>
 
+        {/* CHAT WINDOW */}
         <section className="chat-area">
           <div className="chat-window">
             {messages.map((m) => (
@@ -217,8 +216,11 @@ function App() {
                 <div className={`avatar ${m.role === "user" ? "user" : "bot"}`}>
                   {m.role === "user" ? "🧑" : "🤖"}
                 </div>
+
                 <div className="bubble">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {m.content}
+                  </ReactMarkdown>
                 </div>
               </div>
             ))}
@@ -227,7 +229,9 @@ function App() {
               <div className="message-row from-bot typing-row">
                 <div className="avatar bot">🤖</div>
                 <div className="bubble typing">
-                  <span className="dot" /> <span className="dot" /> <span className="dot" />
+                  <span className="dot"></span>
+                  <span className="dot"></span>
+                  <span className="dot"></span>
                 </div>
               </div>
             )}
@@ -235,41 +239,40 @@ function App() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* MESSAGE BOX */}
           <div className="composer">
-            <div className="left-composer">
-              <button className={`mic-btn ${listening ? "listening" : ""}`} onClick={toggleListening} title="Voice input">
-                🎤
-              </button>
-            </div>
+            <button className={`mic-btn ${listening ? "listening" : ""}`} onClick={toggleListening}>
+              🎤
+            </button>
 
             <textarea
               className="text-input"
-              rows={2}
-              placeholder="Ask anything about SRHR..."
+              placeholder="Ask anything about SRHR…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
             />
 
-            <div className="right-composer">
-              <button className="send-btn" onClick={() => sendMessage()}>Send</button>
-              <button className="clear-btn" onClick={() => { setInput(""); }}>Clear</button>
-            </div>
+            <button className="send-btn" onClick={() => sendMessage()}>Send</button>
           </div>
         </section>
       </main>
 
-      {/* Right sidebar */}
+      {/* RIGHT SIDEBAR */}
       <aside className={`right-sidebar ${rightOpen ? "open" : "closed"}`}>
         <div className="sidebar-header">
-          <h4>Quick SRHR Topics</h4>
-          <button className="collapse-btn" onClick={() => setRightOpen(!rightOpen)}>{rightOpen ? "⟩" : "⟨"}</button>
+          <h4>Quick Topics</h4>
+          <button className="collapse-btn" onClick={() => setRightOpen(!rightOpen)}>
+            {rightOpen ? "⟩" : "⟨"}
+          </button>
         </div>
 
         {rightOpen && (
           <div className="topics">
-            {quickTopics.map((t) => (
-              <button key={t.key} className="topic-btn" onClick={() => handleQuickTopic(t)}>{t.title}</button>
+            {quickTopics.map((t, i) => (
+              <button key={i} className="topic-btn" onClick={() => handleQuickTopic(t)}>
+                {t.title}
+              </button>
             ))}
           </div>
         )}
