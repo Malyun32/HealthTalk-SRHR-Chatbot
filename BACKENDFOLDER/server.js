@@ -1,24 +1,32 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const fs = require('fs');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// ----------------------------------------------------
+// 🟢 HEALTH CHECK
+// ----------------------------------------------------
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'HealthTalk API is running' });
 });
 
-// Chat API
+// ----------------------------------------------------
+// 🟣 CHAT API (POST)
+// ----------------------------------------------------
 app.post('/api/chat', async (req, res) => {
-  const userMsg = req.body.messages?.[req.body.messages.length - 1];
+  const messages = req.body.messages;
+  const userMsg = messages?.[messages.length - 1];
 
-  console.log("\n🔥 Incoming request");
+  console.log("\n🔥 Incoming Chat Request");
   console.log("User asked:", userMsg?.content);
+
+  if (!userMsg || !userMsg.content) {
+    return res.status(400).json({ error: "messages is required" });
+  }
 
   try {
     const bodyData = {
@@ -30,7 +38,6 @@ app.post('/api/chat', async (req, res) => {
       ]
     };
 
-    // ✔ FIXED MODEL NAME
     const apiUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
       process.env.GEMINI_API_KEY;
@@ -42,32 +49,25 @@ app.post('/api/chat', async (req, res) => {
     });
 
     const data = await response.json();
-    console.log("📥 API Response:", data);
+    console.log("📥 Gemini API Response:", data);
 
-    if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      res.json({ reply: data.candidates[0].content.parts[0].text });
-    } else {
-      res.json({ reply: "Sorry, I couldn't generate a response." });
-    }
+    const reply =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Sorry, I couldn't generate a response.";
+
+    res.json({ reply });
+
   } catch (error) {
-    console.error("❌ Server Error:", error);
+    console.error("❌ Chat API Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Auto-port handling
-function startServer(port) {
-  const server = app.listen(port, () => {
-    console.log(`🚀 Server running on port ${port}`);
-    fs.writeFileSync('backend-port.json', JSON.stringify({ port }));
-  });
+// ----------------------------------------------------
+// 🟡 SERVER PORT (Render requirement)
+// ----------------------------------------------------
+const PORT = process.env.PORT || 5000;
 
-  server.on("error", (err) => {
-    if (err.code === "EADDRINUSE") {
-      console.log(`Port ${port} in use... trying ${port + 1}`);
-      startServer(port + 1);
-    }
-  });
-}
-
-startServer(5000);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
