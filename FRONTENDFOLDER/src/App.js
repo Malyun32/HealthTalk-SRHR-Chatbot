@@ -18,7 +18,7 @@ import "./App.css";
  *  ✔ Works with your Render backend
  * ---------------------------------------------------------- */
 
-const API_BASE = "https://healthtalk-srhr-chatbot.onrender.com";  
+const API_BASE = "https://healthtalk-backend.onrender.com";  
 // IMPORTANT: this connects your frontend to your deployed backend
 
 function App() {
